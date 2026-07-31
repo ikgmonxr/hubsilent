@@ -15,15 +15,15 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ Conectado a MongoDB Atlas exitosamente"))
     .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
 
-// Esquema para la base de datos
+// Esquema actualizado con campo 'id' explícito para evitar conflictos
 const scriptSchema = new mongoose.Schema({
-    _id: { 
+    id: { 
         type: String, 
         default: () => crypto.randomBytes(16).toString('hex') 
     },
     code: String,
     createdAt: { type: Date, default: Date.now }
-}, { _id: false });
+});
 
 const ScriptModel = mongoose.model('Script', scriptSchema);
 
@@ -99,10 +99,10 @@ app.post('/api/script', async (req, res) => {
         }
 
         const scriptId = customId || crypto.randomBytes(16).toString('hex');
-        const newScript = new ScriptModel({ _id: scriptId, code });
+        const newScript = new ScriptModel({ id: scriptId, code });
         await newScript.save();
 
-        res.json({ id: newScript._id });
+        res.json({ id: newScript.id });
     } catch (error) {
         console.error("Error al guardar:", error);
         res.status(500).json({ error: 'Error interno del servidor al guardar' });
@@ -114,8 +114,6 @@ app.post('/api/script', async (req, res) => {
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = req.headers['user-agent'] || '';
-
-    // Detecta si se está abriendo desde un navegador web tradicional
     const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('Roblox');
 
     if (isBrowser) {
@@ -123,7 +121,7 @@ app.get('/api/script/:id', async (req, res) => {
     }
 
     try {
-        const scriptData = await ScriptModel.findById(req.params.id);
+        const scriptData = await ScriptModel.findOne({ id: req.params.id });
         
         if (!scriptData) {
             return res.status(404).send('-- Script no encontrado');

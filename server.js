@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const crypto = require('crypto');
 
 const app = express();
 
@@ -14,11 +15,16 @@ mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("✅ Conectado a MongoDB Atlas exitosamente"))
     .catch((err) => console.error("❌ Error conectando a MongoDB:", err));
 
-// Esquema y Modelo de la base de datos para los scripts
+// Esquema adaptado para aceptar IDs de texto o hashes de cualquier longitud
 const scriptSchema = new mongoose.Schema({
+    _id: { 
+        type: String, 
+        default: () => crypto.randomBytes(16).toString('hex') 
+    },
     code: String,
     createdAt: { type: Date, default: Date.now }
-});
+}, { _id: false });
+
 const ScriptModel = mongoose.model('Script', scriptSchema);
 
 // Servir archivos estáticos (tu página web frontend)
@@ -29,12 +35,19 @@ app.use(express.static(__dirname));
 // ==========================================
 app.post('/api/script', async (req, res) => {
     try {
-        const { code } = req.body;
+        const { code, customId } = req.body;
         if (!code) {
             return res.status(400).json({ error: 'No se envió ningún código' });
         }
 
-        const newScript = new ScriptModel({ code });
+        // Usa el ID que envíe el cliente o genera uno nuevo de 32 caracteres hexadecimales
+        const scriptId = customId || crypto.randomBytes(16).toString('hex');
+
+        const newScript = new ScriptModel({
+            _id: scriptId,
+            code: code
+        });
+        
         await newScript.save();
 
         res.json({ id: newScript._id });

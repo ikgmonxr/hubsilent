@@ -113,6 +113,15 @@ app.post('/api/script', async (req, res) => {
 // 3. RUTA PARA OBTENER EL LOADSTRING (GET)
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
+    const userAgent = req.headers['user-agent'] || '';
+
+    // Detecta si se está abriendo desde un navegador web tradicional
+    const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('Roblox');
+
+    if (isBrowser) {
+        return res.status(403).send('ACCESO DENEGADO: Este loadstring solo puede ejecutarse mediante un exploit en Roblox.');
+    }
+
     try {
         const scriptData = await ScriptModel.findById(req.params.id);
         

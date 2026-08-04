@@ -129,7 +129,7 @@ app.get('/', (req, res) => {
 
                     container.innerHTML = '';
                     allScripts.forEach(s => {
-                        const loadstring = \`loadstring(game:HttpGet('\${window.location.origin}/api/script/\${s.id}'))()\`;
+                        const loadstring = \`loadstring(game:HttpGet("${window.location.origin}/api/script/\${s.id}"))()\`;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-900/80 border border-zinc-800/80 p-4 rounded-xl flex flex-col gap-2";
                         card.innerHTML = \`
@@ -183,7 +183,7 @@ app.get('/', (req, res) => {
                             });
                             const data = await res.json();
                             if(data.id) {
-                                const loadstring = \`loadstring(game:HttpGet('\${window.location.origin}/api/script/\${data.id}'))()\`;
+                                const loadstring = \`loadstring(game:HttpGet("${window.location.origin}/api/script/\${data.id}"))()\`;
                                 document.getElementById('resultOutput').value = loadstring;
                                 document.getElementById('scriptCode').value = '';
                                 document.getElementById('scriptName').value = '';
@@ -294,5 +294,5 @@ app.get('/api/script/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Panel Pro Anti-Dump (Sin Keys) activo en el puerto ${PORT}`);
+    console.log(`🛡️ Panel Pro Anti-Dump (Con Comillas Dobles) activo en el puerto ${PORT}`);
 });

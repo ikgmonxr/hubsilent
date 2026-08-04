@@ -23,7 +23,7 @@ app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas - Panel Activo"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - Escudo Antidumps Activo"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
 const scriptSchema = new mongoose.Schema({
@@ -47,7 +47,7 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>HubSilent - Panel de Scripts</title>
+            <title>HubSilent - Panel Blindado</title>
             <style>
                 body { background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
                 .main-container { display: flex; gap: 20px; width: 900px; max-width: 100%; flex-wrap: wrap; justify-content: center; }
@@ -72,17 +72,17 @@ app.get('/', (req, res) => {
         </head>
         <body>
             <div class="main-container">
-                <!-- FORMULARIO DE CREACIÓN / EDICIÓN -->
+                <!-- FORMULARIO -->
                 <div class="card">
                     <h2 id="formTitle">Crear Loadstring</h2>
-                    <p id="formSubtitle">Sube o edita tus scripts públicos</p>
+                    <p id="formSubtitle">Protegido contra Bots de Discord y Scrapers</p>
                     <textarea id="scriptCode" placeholder="Pega tu código de Lua aquí..."></textarea>
                     <button id="saveBtn" onclick="saveScript()">Generar Loadstring</button>
                     <button id="cancelBtn" class="btn-cancel" onclick="resetForm()">Cancelar Edición</button>
                     <input type="text" id="result" readonly placeholder="Tu loadstring aparecerá aquí...">
                 </div>
 
-                <!-- PANEL DE MIS SCRIPTS -->
+                <!-- MIS SCRIPTS -->
                 <div class="card">
                     <h3>Mis Scripts Creados</h3>
                     <p>Gestiona, edita o copia tus scripts guardados</p>
@@ -94,8 +94,6 @@ app.get('/', (req, res) => {
 
             <script>
                 let editingId = null;
-
-                // Cargar lista al iniciar
                 window.onload = loadLocalScripts;
 
                 function getLocalScripts() {
@@ -111,16 +109,14 @@ app.get('/', (req, res) => {
                     if(!code) return alert('¡Pega un script primero!');
 
                     if (editingId) {
-                        // MODO EDICIÓN (PUT)
                         try {
-                            const res = await fetch(\'/api/script/\' + editingId, {
+                            const res = await fetch('/api/script/' + editingId, {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ code })
                             });
                             const data = await res.json();
                             if(data.success) {
-                                // Actualizar en localStorage
                                 let scripts = getLocalScripts();
                                 let script = scripts.find(s => s.id === editingId);
                                 if(script) script.code = code;
@@ -130,13 +126,12 @@ app.get('/', (req, res) => {
                                 resetForm();
                                 loadLocalScripts();
                             } else {
-                                alert('Error al actualizar el script');
+                                alert('Error al actualizar');
                             }
                         } catch(e) {
-                            alert('Error de conexión con el servidor');
+                            alert('Error de conexión');
                         }
                     } else {
-                        // MODO CREACIÓN (POST)
                         try {
                             const res = await fetch('/api/script', {
                                 method: 'POST',
@@ -146,16 +141,14 @@ app.get('/', (req, res) => {
                             const data = await res.json();
                             if(data.id) {
                                 const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
-                                
-                                // Guardar en localStorage
                                 let scripts = getLocalScripts();
-                                scripts.unshift({ id: data.id, code: code, loadstring: loadstring, date: new Date().toLocaleDateString() });
+                                scripts.unshift({ id: data.id, code: code, loadstring: loadstring });
                                 saveLocalScripts(scripts);
 
                                 document.getElementById('result').value = loadstring;
                                 document.getElementById('scriptCode').value = '';
                                 loadLocalScripts();
-                                alert('¡Loadstring generado y guardado en tu panel!');
+                                alert('¡Loadstring generado y protegido!');
                             } else {
                                 alert('Error al generar');
                             }
@@ -168,18 +161,16 @@ app.get('/', (req, res) => {
                 function loadLocalScripts() {
                     const listContainer = document.getElementById('scriptList');
                     const scripts = getLocalScripts();
-
                     if(scripts.length === 0) {
-                        listContainer.innerHTML = '<p style="color: #64748b; margin-top: 20px;">No hay scripts guardados en este navegador.</p>';
+                        listContainer.innerHTML = '<p style="color: #64748b; margin-top: 20px;">No hay scripts guardados.</p>';
                         return;
                     }
-
                     listContainer.innerHTML = '';
                     scripts.forEach(s => {
                         const item = document.createElement('div');
                         item.className = 'script-item';
                         item.innerHTML = \`
-                            <div class="script-info">ID: \/api/script/\${s.id}</div>
+                            <div class="script-info">ID: /api/script/\${s.id}</div>
                             <div class="script-actions">
                                 <button class="btn-edit" onclick="startEdit('\${s.id}')">Editar</button>
                                 <button onclick="copyLoadstring('\${s.loadstring}')">Copiar</button>
@@ -193,7 +184,6 @@ app.get('/', (req, res) => {
                     const scripts = getLocalScripts();
                     const script = scripts.find(s => s.id === id);
                     if(!script) return;
-
                     editingId = id;
                     document.getElementById('scriptCode').value = script.code;
                     document.getElementById('result').value = script.loadstring;
@@ -209,14 +199,14 @@ app.get('/', (req, res) => {
                     document.getElementById('scriptCode').value = '';
                     document.getElementById('result').value = '';
                     document.getElementById('formTitle').innerText = 'Crear Loadstring';
-                    document.getElementById('formSubtitle').innerText = 'Sube o edita tus scripts públicos';
+                    document.getElementById('formSubtitle').innerText = 'Protegido contra Bots de Discord y Scrapers';
                     document.getElementById('saveBtn').innerText = 'Generar Loadstring';
                     document.getElementById('cancelBtn').style.display = 'none';
                 }
 
                 function copyLoadstring(text) {
                     navigator.clipboard.writeText(text);
-                    alert('¡Loadstring copiado al portapapeles!');
+                    alert('¡Loadstring copiado!');
                 }
             </script>
         </body>
@@ -225,63 +215,57 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// 2. RUTA PARA GUARDAR NUEVOS SCRIPTS (POST)
+// 2. RUTA PARA GUARDAR (POST)
 // ==========================================
 app.post('/api/script', async (req, res) => {
     try {
         const { code } = req.body;
         if (!code) return res.status(400).json({ error: 'Falta el código' });
-
         const newScript = new ScriptModel({ code });
         await newScript.save();
-
         res.json({ id: newScript.id });
     } catch (error) {
-        res.status(500).json({ error: 'Error interno al guardar' });
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
 // ==========================================
-// 3. RUTA PARA ACTUALIZAR SCRIPTS (PUT - EDITAR)
+// 3. RUTA PARA EDITAR (PUT)
 // ==========================================
 app.put('/api/script/:id', async (req, res) => {
     try {
         const { code } = req.body;
         if (!code) return res.status(400).json({ error: 'Falta el código' });
-
-        const updated = await ScriptModel.findOneAndUpdate(
-            { id: req.params.id }, 
-            { code }, 
-            { new: true }
-        );
-
-        if (!updated) {
-            return res.status(404).json({ error: 'Script no encontrado' });
-        }
-
+        const updated = await ScriptModel.findOneAndUpdate({ id: req.params.id }, { code }, { new: true });
+        if (!updated) return res.status(404).json({ error: 'No encontrado' });
         res.json({ success: true, id: updated.id });
     } catch (error) {
-        console.error("Error al actualizar:", error);
-        res.status(500).json({ error: 'Error interno al actualizar' });
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
 // ==========================================
-// 4. RUTA PÚBLICA PARA EJECUTAR EL SCRIPT (GET)
+// 4. RUTA DE ENTREGA BLINDADA (ANTIDUMP / ANTIDISCORDBOT)
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
-    const userAgent = req.headers['user-agent'] || '';
-    const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('Roblox');
+    const userAgent = (req.headers['user-agent'] || '').toLowerCase();
+    
+    // Detectar navegadores web comunes (Chrome, Edge, Firefox, etc.)
+    const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('roblox');
+    
+    // Detectar específicamente bots de Discord, scrapers y herramientas de descarga externa
+    const isDiscordBot = userAgent.includes('discordbot');
+    const isScraperTool = /python|axios|node-fetch|curl|wget|postman|bot|crawler|spider|scraper/i.test(userAgent);
 
-    if (isBrowser) {
-        return res.status(403).send('ACCESO DENEGADO: Este loadstring solo puede ejecutarse mediante un exploit en Roblox.');
+    if (isBrowser || isDiscordBot || isScraperTool) {
+        return res.status(403).send('-- ACCESO DENEGADO: Este script está protegido contra dumpers y bots de Discord.');
     }
 
     try {
         const scriptData = await ScriptModel.findOne({ id: req.params.id });
         
         if (!scriptData) {
-            return res.status(404).send('-- Script no encontrado en la base de datos');
+            return res.status(404).send('-- Script no encontrado');
         }
 
         res.setHeader('Content-Type', 'text/plain');
@@ -295,5 +279,5 @@ app.get('/api/script/:id', async (req, res) => {
 // Puerto del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor con panel de gestión activo en el puerto ${PORT}`);
+    console.log(`🛡️ Servidor blindado activo en el puerto ${PORT}`);
 });

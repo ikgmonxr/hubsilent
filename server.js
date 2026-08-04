@@ -15,17 +15,17 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 50,
+    max: 40,
     message: '🚫 Demasiadas peticiones. Tranquilo.',
 });
 app.use('/api/', limiter);
 
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("🔥 Servidor Cyberpunk Pro Anti-Dump Activo"))
+    .then(() => console.log("🔥 Servidor Cyberpunk Pro Anti-Dump [Nivel Máximo] Activo"))
     .catch((err) => console.error("❌ Error DB:", err));
 
 const scriptSchema = new mongoose.Schema({
-    id: { type: String, default: () => crypto.randomBytes(12).toString('hex') },
+    id: { type: String, default: () => crypto.randomBytes(16).toString('hex') },
     name: String,
     code: String,
     createdAt: { type: Date, default: Date.now }
@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Ikgonavi Hub | Control Center</title>
+            <title>Ikgonavi Hub | Secure Control Center</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
                 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
@@ -58,11 +58,14 @@ app.get('/', (req, res) => {
                     <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-xl text-white">⚡</div>
                     <div>
                         <h1 class="font-bold text-lg text-white">Ikgonavi Hub Pro</h1>
-                        <p class="text-xs text-indigo-400">Sistema Anti-Dump Avanzado Activo</p>
+                        <p class="text-xs text-indigo-400">Sistema Anti-Dump Extremo Activo</p>
                     </div>
                 </div>
-                <div class="text-xs bg-indigo-950/80 text-indigo-300 px-3 py-1.5 rounded-xl border border-indigo-800/50 font-mono">
-                    Status: <span class="text-emerald-400 font-bold">Protegido</span>
+                <div class="flex items-center gap-3">
+                    <button onclick="wipeAllDatabase()" class="text-xs bg-red-950/80 hover:bg-red-900 text-red-300 px-3 py-2 rounded-xl border border-red-800/50 font-semibold transition">🗑️ Borrar Todo</button>
+                    <div class="text-xs bg-indigo-950/80 text-indigo-300 px-3 py-2 rounded-xl border border-indigo-800/50 font-mono">
+                        Status: <span class="text-emerald-400 font-bold">Blindado</span>
+                    </div>
                 </div>
             </header>
 
@@ -104,8 +107,7 @@ app.get('/', (req, res) => {
                 async function loadScripts() {
                     const container = document.getElementById('scriptListContainer');
                     
-                    let localScripts = [];
-                    try { localScripts = JSON.parse(localStorage.getItem('my_hubsilent_scripts') || '[]'); } catch(e) {}
+                    localStorage.removeItem('my_hubsilent_scripts'); // Limpiar cache local obsoleta
 
                     let dbScripts = [];
                     try {
@@ -113,22 +115,15 @@ app.get('/', (req, res) => {
                         dbScripts = await res.json();
                     } catch(e) {}
 
-                    const allScripts = [...dbScripts];
-                    localScripts.forEach(ls => {
-                        if (!allScripts.some(s => s.id === ls.id)) {
-                            allScripts.push({ name: "Script Rescatado (Local)", id: ls.id, code: ls.code });
-                        }
-                    });
-
-                    document.getElementById('counterBadge').innerText = allScripts.length + ' scripts';
+                    document.getElementById('counterBadge').innerText = dbScripts.length + ' scripts';
                     
-                    if(allScripts.length === 0) {
-                        container.innerHTML = '<p class="text-zinc-500 text-xs text-center py-10">No hay scripts creados.</p>';
+                    if(dbScripts.length === 0) {
+                        container.innerHTML = '<p class="text-zinc-500 text-xs text-center py-10">No hay scripts creados. ¡Empieza desde cero!</p>';
                         return;
                     }
 
                     container.innerHTML = '';
-                    allScripts.forEach(s => {
+                    dbScripts.forEach(s => {
                         const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${s.id}"))()\`;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-900/80 border border-zinc-800/80 p-4 rounded-xl flex flex-col gap-2";
@@ -196,6 +191,21 @@ app.get('/', (req, res) => {
                     btn.disabled = false;
                 }
 
+                async function wipeAllDatabase() {
+                    if(!confirm('⚠️ ¿ESTÁS SEGURO? Esto borrará ABSOLUTAMENTE TODOS tus scripts de la base de datos para empezar desde cero.')) return;
+                    try {
+                        const res = await fetch('/api/scripts/wipe', { method: 'DELETE' });
+                        const data = await res.json();
+                        if(data.success) {
+                            alert('🗑️ Base de datos limpiada por completo.');
+                            resetForm();
+                            loadScripts();
+                        } else {
+                            alert('Error al vaciar la base de datos.');
+                        }
+                    } catch(e) { alert('Error de conexión.'); }
+                }
+
                 function startEdit(id, encodedCode, name) {
                     editingId = id;
                     document.getElementById('scriptCode').value = decodeURIComponent(encodedCode);
@@ -228,6 +238,16 @@ app.get('/api/scripts', async (req, res) => {
     } catch(e) { res.json([]); }
 });
 
+// Ruta para borrar TODOS los scripts (Empezar desde cero)
+app.delete('/api/scripts/wipe', async (req, res) => {
+    try {
+        await ScriptModel.deleteMany({});
+        res.json({ success: true, message: 'Todos los scripts han sido eliminados correctamente.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error interno al limpiar la base de datos' });
+    }
+});
+
 app.post('/api/script', async (req, res) => {
     try {
         const { name, code } = req.body;
@@ -256,31 +276,36 @@ app.put('/api/script/:id', async (req, res) => {
     }
 });
 
+// Ruta Blindada Anti-Dump Mejorada
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
 
-    const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('roblox');
-    const isDiscordBot = userAgent.includes('discordbot');
-    const isScraperTool = /python|axios|node-fetch|wget|postman|bot|crawler|spider|scraper/i.test(userAgent);
+    // Filtros de seguridad estrictos contra navegadores comunes, bots de discord y scrapers avanzados
+    const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident|mozilla/i.test(userAgent) && !userAgent.includes('roblox');
+    const isDiscordBot = userAgent.includes('discordbot') || userAgent.includes('discord');
+    const isScraperTool = /python|axios|node-fetch|wget|postman|bot|crawler|spider|scraper|java|ruby|php|go-http-client/i.test(userAgent);
 
     if (isBrowser || isDiscordBot || isScraperTool) {
-        return res.status(403).send('-- ACCESO DENEGADO: Protegido contra dumpers y bots.');
+        return res.status(403).send('-- ACCESO DENEGADO: Sistema Anti-Dump Activo. Este script solo puede ejecutarse dentro de Roblox.');
     }
 
     try {
         const scriptData = await ScriptModel.findOne({ id: req.params.id });
         
         if (!scriptData) {
-            return res.status(404).send('-- Script no encontrado');
+            return res.status(404).send('-- Script no encontrado o eliminado');
         }
 
-        let junkPadding = `-- [SECURED BY IKGONAVI - ANTI-DUMP SYSTEM]\n`;
-        for (let i = 1; i <= 100; i++) {
-            junkPadding += `-- Junk Node ${i}: local _fakeToken_${i} = "${Math.random().toString(36).substring(7)}"\n`;
+        // Sistema anti-dump reforzado con relleno aleatorio masivo para romper analizadores estáticos
+        let heavyJunkPadding = `-- [SECURED BY IKGONAVI EXTREME ANTI-DUMP]\n`;
+        for (let i = 1; i <= 250; i++) {
+            const randomVar = crypto.randomBytes(4).toString('hex');
+            const randomVal = crypto.randomBytes(8).toString('hex');
+            heavyJunkPadding += `-- Node_${i}: local _sys_sec_${randomVar} = "${randomVal}"\n`;
         }
-        junkPadding += `\n-- [INICIO DEL SCRIPT REAL]\n`;
+        heavyJunkPadding += `\n-- [INICIO DEL NÚCLEO DE EJECUCIÓN]\n`;
 
-        const finalProtectedCode = junkPadding + "\n" + scriptData.code;
+        const finalProtectedCode = heavyJunkPadding + "\n" + scriptData.code;
 
         res.setHeader('Content-Type', 'text/plain');
         res.send(finalProtectedCode);
@@ -292,5 +317,5 @@ app.get('/api/script/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Panel Pro Anti-Dump activo en el puerto ${PORT}`);
+    console.log(`🛡️ Panel Pro Blindado activo en el puerto ${PORT}`);
 });

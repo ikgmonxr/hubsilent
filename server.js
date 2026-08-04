@@ -23,7 +23,7 @@ app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas - Escudo Antidumps Activo"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - HubSilent Blindado Activo"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
 const scriptSchema = new mongoose.Schema({
@@ -75,7 +75,7 @@ app.get('/', (req, res) => {
                 <!-- FORMULARIO -->
                 <div class="card">
                     <h2 id="formTitle">Crear Loadstring</h2>
-                    <p id="formSubtitle">Protegido contra Bots de Discord y Scrapers</p>
+                    <p id="formSubtitle">Protegido con marca de agua y anti-dump</p>
                     <textarea id="scriptCode" placeholder="Pega tu código de Lua aquí..."></textarea>
                     <button id="saveBtn" onclick="saveScript()">Generar Loadstring</button>
                     <button id="cancelBtn" class="btn-cancel" onclick="resetForm()">Cancelar Edición</button>
@@ -87,7 +87,7 @@ app.get('/', (req, res) => {
                     <h3>Mis Scripts Creados</h3>
                     <p>Gestiona, edita o copia tus scripts guardados</p>
                     <div class="script-list" id="scriptList">
-                        <p style="color: #64748b; margin-top: 20px;">No hay scripts guardados en este navegador.</p>
+                        <p style="color: #64748b; margin-top: 20px;">No hay scripts guardados.</p>
                     </div>
                 </div>
             </div>
@@ -140,7 +140,8 @@ app.get('/', (req, res) => {
                             });
                             const data = await res.json();
                             if(data.id) {
-                                const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
+                                const loadstring = \`-- protect by ikgmonxr lol haahaha\\nloadstring(game:HttpGet('\${window.location.origin}/api/script/\${data.id}'))()\`;
+                                
                                 let scripts = getLocalScripts();
                                 scripts.unshift({ id: data.id, code: code, loadstring: loadstring });
                                 saveLocalScripts(scripts);
@@ -148,7 +149,7 @@ app.get('/', (req, res) => {
                                 document.getElementById('result').value = loadstring;
                                 document.getElementById('scriptCode').value = '';
                                 loadLocalScripts();
-                                alert('¡Loadstring generado y protegido!');
+                                alert('¡Loadstring generado con éxito!');
                             } else {
                                 alert('Error al generar');
                             }
@@ -173,7 +174,7 @@ app.get('/', (req, res) => {
                             <div class="script-info">ID: /api/script/\${s.id}</div>
                             <div class="script-actions">
                                 <button class="btn-edit" onclick="startEdit('\${s.id}')">Editar</button>
-                                <button onclick="copyLoadstring('\${s.loadstring}')">Copiar</button>
+                                <button onclick="copyLoadstring(\`\${s.loadstring}\`)">Copiar</button>
                             </div>
                         \`;
                         listContainer.appendChild(item);
@@ -199,7 +200,7 @@ app.get('/', (req, res) => {
                     document.getElementById('scriptCode').value = '';
                     document.getElementById('result').value = '';
                     document.getElementById('formTitle').innerText = 'Crear Loadstring';
-                    document.getElementById('formSubtitle').innerText = 'Protegido contra Bots de Discord y Scrapers';
+                    document.getElementById('formSubtitle').innerText = 'Protegido con marca de agua y anti-dump';
                     document.getElementById('saveBtn').innerText = 'Generar Loadstring';
                     document.getElementById('cancelBtn').style.display = 'none';
                 }
@@ -245,20 +246,17 @@ app.put('/api/script/:id', async (req, res) => {
 });
 
 // ==========================================
-// 4. RUTA DE ENTREGA BLINDADA (ANTIDUMP / ANTIDISCORDBOT)
+// 4. RUTA DE ENTREGA BLINDADA (CON 100 LÍNEAS ANTI-DUMP)
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
     
-    // Detectar navegadores web comunes (Chrome, Edge, Firefox, etc.)
     const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('roblox');
-    
-    // Detectar específicamente bots de Discord, scrapers y herramientas de descarga externa
     const isDiscordBot = userAgent.includes('discordbot');
     const isScraperTool = /python|axios|node-fetch|curl|wget|postman|bot|crawler|spider|scraper/i.test(userAgent);
 
     if (isBrowser || isDiscordBot || isScraperTool) {
-        return res.status(403).send('-- ACCESO DENEGADO: Este script está protegido contra dumpers y bots de Discord.');
+        return res.status(403).send('-- ACCESO DENEGADO: Protegido contra dumpers y bots.');
     }
 
     try {
@@ -268,16 +266,24 @@ app.get('/api/script/:id', async (req, res) => {
             return res.status(404).send('-- Script no encontrado');
         }
 
+        // Generar relleno masivo (100 líneas de basura anti-dump)
+        let junkPadding = "-- [PROTECTED BY IKGMONXR - ANTI-DUMP SYSTEM]\n";
+        for (let i = 1; i <= 100; i++) {
+            junkPadding += `-- Junk Line ${i}: local _fakeData_${i} = "${Math.random().toString(36).substring(7)}"\n`;
+        }
+        junkPadding += "\n-- [INICIO DEL SCRIPT REAL]\n";
+
+        const finalProtectedCode = junkPadding + "\n" + scriptData.code;
+
         res.setHeader('Content-Type', 'text/plain');
-        res.send(scriptData.code);
+        res.send(finalProtectedCode);
     } catch (error) {
         console.error("Error al obtener el script:", error);
         res.status(500).send('-- Error interno del servidor');
     }
 });
 
-// Puerto del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Servidor blindado activo en el puerto ${PORT}`);
+    console.log(`🛡️ Servidor completo anti-dump activo en el puerto ${PORT}`);
 });

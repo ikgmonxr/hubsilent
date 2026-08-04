@@ -129,7 +129,7 @@ app.get('/', (req, res) => {
 
                     container.innerHTML = '';
                     allScripts.forEach(s => {
-                        const loadstring = \`loadstring(game:HttpGet("${window.location.origin}/api/script/\${s.id}"))()\`;
+                        const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${s.id}"))()\`;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-900/80 border border-zinc-800/80 p-4 rounded-xl flex flex-col gap-2";
                         card.innerHTML = \`
@@ -183,7 +183,7 @@ app.get('/', (req, res) => {
                             });
                             const data = await res.json();
                             if(data.id) {
-                                const loadstring = \`loadstring(game:HttpGet("${window.location.origin}/api/script/\${data.id}"))()\`;
+                                const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
                                 document.getElementById('resultOutput').value = loadstring;
                                 document.getElementById('scriptCode').value = '';
                                 document.getElementById('scriptName').value = '';
@@ -256,7 +256,6 @@ app.put('/api/script/:id', async (req, res) => {
     }
 });
 
-// RUTA DE ENTREGA BLINDADA (ANTI-DUMP DE 100 LÍNEAS, SIN KEYS)
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
 
@@ -275,7 +274,6 @@ app.get('/api/script/:id', async (req, res) => {
             return res.status(404).send('-- Script no encontrado');
         }
 
-        // Generar 100 líneas de relleno basura para arruinarle el dumper a cualquiera
         let junkPadding = `-- [SECURED BY IKGONAVI - ANTI-DUMP SYSTEM]\n`;
         for (let i = 1; i <= 100; i++) {
             junkPadding += `-- Junk Node ${i}: local _fakeToken_${i} = "${Math.random().toString(36).substring(7)}"\n`;
@@ -294,5 +292,5 @@ app.get('/api/script/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Panel Pro Anti-Dump (Con Comillas Dobles) activo en el puerto ${PORT}`);
+    console.log(`🛡️ Panel Pro Anti-Dump activo en el puerto ${PORT}`);
 });

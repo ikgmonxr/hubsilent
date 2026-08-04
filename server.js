@@ -10,8 +10,10 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+// Ampliado el límite de tamaño para aceptar scripts gigantescos de Roblox
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Límite anti-spam para creación
 const createLimiter = rateLimit({
@@ -23,7 +25,7 @@ app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas - HubSilent Blindado Activo"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - Soporte para Scripts Gigantes Activo"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
 const scriptSchema = new mongoose.Schema({
@@ -108,6 +110,12 @@ app.get('/', (req, res) => {
                     const code = document.getElementById('scriptCode').value;
                     if(!code) return alert('¡Pega un script primero!');
 
+                    // Mostrar estado de carga en el botón
+                    const btn = document.getElementById('saveBtn');
+                    const originalText = btn.innerText;
+                    btn.innerText = 'Guardando...';
+                    btn.disabled = true;
+
                     if (editingId) {
                         try {
                             const res = await fetch('/api/script/' + editingId, {
@@ -126,10 +134,10 @@ app.get('/', (req, res) => {
                                 resetForm();
                                 loadLocalScripts();
                             } else {
-                                alert('Error al actualizar');
+                                alert('Error al actualizar: ' + (data.error || 'Desconocido'));
                             }
                         } catch(e) {
-                            alert('Error de conexión');
+                            alert('Error de conexión al servidor.');
                         }
                     } else {
                         try {
@@ -151,12 +159,14 @@ app.get('/', (req, res) => {
                                 loadLocalScripts();
                                 alert('¡Loadstring generado con éxito!');
                             } else {
-                                alert('Error al generar');
+                                alert('Error al generar: ' + (data.error || 'Desconocido'));
                             }
                         } catch (e) {
-                            alert('Error de conexión');
+                            alert('Error de conexión o script demasiado pesado para la red.');
                         }
                     }
+                    btn.innerText = originalText;
+                    btn.disabled = false;
                 }
 
                 function loadLocalScripts() {
@@ -226,7 +236,8 @@ app.post('/api/script', async (req, res) => {
         await newScript.save();
         res.json({ id: newScript.id });
     } catch (error) {
-        res.status(500).json({ error: 'Error interno' });
+        console.error("Error al guardar:", error);
+        res.status(500).json({ error: 'Error interno al guardar en base de datos' });
     }
 });
 
@@ -285,5 +296,5 @@ app.get('/api/script/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Servidor completo anti-dump activo en el puerto ${PORT}`);
+    console.log(`🛡️ Servidor con soporte masivo anti-dump activo en el puerto ${PORT}`);
 });

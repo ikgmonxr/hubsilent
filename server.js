@@ -23,7 +23,7 @@ app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas - Formato Protegido Activo"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - Escudo Antidumps Activo"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
 const scriptSchema = new mongoose.Schema({
@@ -47,7 +47,7 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>HubSilent - Panel Protegido</title>
+            <title>HubSilent - Panel Blindado</title>
             <style>
                 body { background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
                 .main-container { display: flex; gap: 20px; width: 900px; max-width: 100%; flex-wrap: wrap; justify-content: center; }
@@ -75,7 +75,7 @@ app.get('/', (req, res) => {
                 <!-- FORMULARIO -->
                 <div class="card">
                     <h2 id="formTitle">Crear Loadstring</h2>
-                    <p id="formSubtitle">Con formato de protección personalizado</p>
+                    <p id="formSubtitle">Protegido contra Bots de Discord y Scrapers</p>
                     <textarea id="scriptCode" placeholder="Pega tu código de Lua aquí..."></textarea>
                     <button id="saveBtn" onclick="saveScript()">Generar Loadstring</button>
                     <button id="cancelBtn" class="btn-cancel" onclick="resetForm()">Cancelar Edición</button>
@@ -87,7 +87,7 @@ app.get('/', (req, res) => {
                     <h3>Mis Scripts Creados</h3>
                     <p>Gestiona, edita o copia tus scripts guardados</p>
                     <div class="script-list" id="scriptList">
-                        <p style="color: #64748b; margin-top: 20px;">No hay scripts guardados.</p>
+                        <p style="color: #64748b; margin-top: 20px;">No hay scripts guardados en este navegador.</p>
                     </div>
                 </div>
             </div>
@@ -140,9 +140,7 @@ app.get('/', (req, res) => {
                             });
                             const data = await res.json();
                             if(data.id) {
-                                // Formato solicitado con comillas simples y la marca de agua
-                                const loadstring = `-- protect by ikgmonxr lol haahaha\nloadstring(game:HttpGet('${window.location.origin}/api/script/${data.id}'))()`;
-                                
+                                const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
                                 let scripts = getLocalScripts();
                                 scripts.unshift({ id: data.id, code: code, loadstring: loadstring });
                                 saveLocalScripts(scripts);
@@ -150,7 +148,7 @@ app.get('/', (req, res) => {
                                 document.getElementById('result').value = loadstring;
                                 document.getElementById('scriptCode').value = '';
                                 loadLocalScripts();
-                                alert('¡Loadstring generado con formato protegido!');
+                                alert('¡Loadstring generado y protegido!');
                             } else {
                                 alert('Error al generar');
                             }
@@ -175,7 +173,7 @@ app.get('/', (req, res) => {
                             <div class="script-info">ID: /api/script/\${s.id}</div>
                             <div class="script-actions">
                                 <button class="btn-edit" onclick="startEdit('\${s.id}')">Editar</button>
-                                <button onclick="copyLoadstring(\`\${s.loadstring}\`)">Copiar</button>
+                                <button onclick="copyLoadstring('\${s.loadstring}')">Copiar</button>
                             </div>
                         \`;
                         listContainer.appendChild(item);
@@ -201,14 +199,14 @@ app.get('/', (req, res) => {
                     document.getElementById('scriptCode').value = '';
                     document.getElementById('result').value = '';
                     document.getElementById('formTitle').innerText = 'Crear Loadstring';
-                    document.getElementById('formSubtitle').innerText = 'Con formato de protección personalizado';
+                    document.getElementById('formSubtitle').innerText = 'Protegido contra Bots de Discord y Scrapers';
                     document.getElementById('saveBtn').innerText = 'Generar Loadstring';
                     document.getElementById('cancelBtn').style.display = 'none';
                 }
 
                 function copyLoadstring(text) {
                     navigator.clipboard.writeText(text);
-                    alert('¡Loadstring protegido copiado!');
+                    alert('¡Loadstring copiado!');
                 }
             </script>
         </body>
@@ -247,17 +245,20 @@ app.put('/api/script/:id', async (req, res) => {
 });
 
 // ==========================================
-// 4. RUTA DE ENTREGA BLINDADA
+// 4. RUTA DE ENTREGA BLINDADA (ANTIDUMP / ANTIDISCORDBOT)
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
     
+    // Detectar navegadores web comunes (Chrome, Edge, Firefox, etc.)
     const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('roblox');
+    
+    // Detectar específicamente bots de Discord, scrapers y herramientas de descarga externa
     const isDiscordBot = userAgent.includes('discordbot');
     const isScraperTool = /python|axios|node-fetch|curl|wget|postman|bot|crawler|spider|scraper/i.test(userAgent);
 
     if (isBrowser || isDiscordBot || isScraperTool) {
-        return res.status(403).send('-- ACCESO DENEGADO: Protegido contra dumpers y bots.');
+        return res.status(403).send('-- ACCESO DENEGADO: Este script está protegido contra dumpers y bots de Discord.');
     }
 
     try {
@@ -275,7 +276,8 @@ app.get('/api/script/:id', async (req, res) => {
     }
 });
 
+// Puerto del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Servidor con formato personalizado activo en el puerto ${PORT}`);
+    console.log(`🛡️ Servidor blindado activo en el puerto ${PORT}`);
 });

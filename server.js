@@ -13,20 +13,19 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Límite anti-spam ÚNICAMENTE para cuando crean nuevos scripts (evita que bots saturen tu base de datos)
+// Límite anti-spam para creación
 const createLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: '🚫 Has creado demasiados scripts muy rápido. Espera un momento.',
+    max: 20,
+    message: '🚫 Demasiadas peticiones. Intenta más tarde.',
 });
 app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas - Modo Público/Permanente"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - Panel Activo"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
-// Esquema permanente (sin expiración)
 const scriptSchema = new mongoose.Schema({
     id: { 
         type: String, 
@@ -39,7 +38,7 @@ const scriptSchema = new mongoose.Schema({
 const ScriptModel = mongoose.model('PublicScript', scriptSchema);
 
 // ==========================================
-// 1. PÁGINA WEB PRINCIPAL (INTERFAZ VISUAL)
+// 1. PÁGINA WEB PRINCIPAL (PANEL DE CONTROL)
 // ==========================================
 app.get('/', (req, res) => {
     res.send(`
@@ -48,52 +47,176 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>HubSilent - Generador Público</title>
+            <title>HubSilent - Panel de Scripts</title>
             <style>
-                body { background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                .container { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); width: 450px; display: flex; flex-direction: column; gap: 15px; }
-                h2 { margin: 0 0 5px 0; color: #38bdf8; text-align: center; }
-                p { font-size: 12px; color: #94a3b8; text-align: center; margin: 0 0 10px 0; }
-                textarea { background: #0f172a; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 12px; height: 140px; resize: none; font-family: monospace; outline: none; }
+                body { background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+                .main-container { display: flex; gap: 20px; width: 900px; max-width: 100%; flex-wrap: wrap; justify-content: center; }
+                .card { background: #1e293b; padding: 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); width: 420px; display: flex; flex-direction: column; gap: 12px; }
+                h2, h3 { margin: 0 0 5px 0; color: #38bdf8; text-align: center; }
+                p { font-size: 11px; color: #94a3b8; text-align: center; margin: 0; }
+                textarea { background: #0f172a; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 10px; height: 120px; resize: none; font-family: monospace; outline: none; }
                 textarea:focus { border-color: #38bdf8; }
-                button { background: #22c55e; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+                button { background: #22c55e; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
                 button:hover { background: #16a34a; }
-                input { background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-family: monospace; outline: none; font-size: 13px; }
+                .btn-cancel { background: #ef4444; display: none; }
+                .btn-cancel:hover { background: #dc2626; }
+                input { background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 6px; padding: 8px; font-family: monospace; outline: none; font-size: 11px; }
+                .script-list { max-height: 380px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 5px; }
+                .script-item { background: #0f172a; padding: 10px; border-radius: 6px; border: 1px solid #334155; display: flex; flex-direction: column; gap: 6px; }
+                .script-info { font-size: 11px; color: #38bdf8; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .script-actions { display: flex; gap: 6px; }
+                .script-actions button { flex: 1; padding: 6px; font-size: 11px; }
+                .btn-edit { background: #3b82f6; }
+                .btn-edit:hover { background: #2563eb; }
             </style>
         </head>
         <body>
-            <div class="container">
-                <h2>HubSilent Hub</h2>
-                <p>Crea un loadstring permanente para todo el público</p>
-                <textarea id="scriptCode" placeholder="Pega tu script de Lua aquí..."></textarea>
-                <button onclick="generate()">Generar Loadstring Permanente</button>
-                <input type="text" id="result" readonly placeholder="Tu loadstring aparecerá aquí...">
+            <div class="main-container">
+                <!-- FORMULARIO DE CREACIÓN / EDICIÓN -->
+                <div class="card">
+                    <h2 id="formTitle">Crear Loadstring</h2>
+                    <p id="formSubtitle">Sube o edita tus scripts públicos</p>
+                    <textarea id="scriptCode" placeholder="Pega tu código de Lua aquí..."></textarea>
+                    <button id="saveBtn" onclick="saveScript()">Generar Loadstring</button>
+                    <button id="cancelBtn" class="btn-cancel" onclick="resetForm()">Cancelar Edición</button>
+                    <input type="text" id="result" readonly placeholder="Tu loadstring aparecerá aquí...">
+                </div>
+
+                <!-- PANEL DE MIS SCRIPTS -->
+                <div class="card">
+                    <h3>Mis Scripts Creados</h3>
+                    <p>Gestiona, edita o copia tus scripts guardados</p>
+                    <div class="script-list" id="scriptList">
+                        <p style="color: #64748b; margin-top: 20px;">No hay scripts guardados en este navegador.</p>
+                    </div>
+                </div>
             </div>
+
             <script>
-                async function generate() {
+                let editingId = null;
+
+                // Cargar lista al iniciar
+                window.onload = loadLocalScripts;
+
+                function getLocalScripts() {
+                    return JSON.parse(localStorage.getItem('my_hubsilent_scripts') || '[]');
+                }
+
+                function saveLocalScripts(scripts) {
+                    localStorage.setItem('my_hubsilent_scripts', JSON.stringify(scripts));
+                }
+
+                async function saveScript() {
                     const code = document.getElementById('scriptCode').value;
                     if(!code) return alert('¡Pega un script primero!');
-                    
-                    try {
-                        const res = await fetch('/api/script', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ code })
-                        });
-                        const data = await res.json();
-                        if(data.id) {
-                            const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
-                            const resultInput = document.getElementById('result');
-                            resultInput.value = loadstring;
-                            resultInput.select();
-                            navigator.clipboard.writeText(loadstring);
-                            alert('¡Loadstring permanente generado y copiado al portapapeles!');
-                        } else {
-                            alert('Error al generar el loadstring');
+
+                    if (editingId) {
+                        // MODO EDICIÓN (PUT)
+                        try {
+                            const res = await fetch(\'/api/script/\' + editingId, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ code })
+                            });
+                            const data = await res.json();
+                            if(data.success) {
+                                // Actualizar en localStorage
+                                let scripts = getLocalScripts();
+                                let script = scripts.find(s => s.id === editingId);
+                                if(script) script.code = code;
+                                saveLocalScripts(scripts);
+
+                                alert('¡Script actualizado con éxito!');
+                                resetForm();
+                                loadLocalScripts();
+                            } else {
+                                alert('Error al actualizar el script');
+                            }
+                        } catch(e) {
+                            alert('Error de conexión con el servidor');
                         }
-                    } catch (e) {
-                        alert('Error de conexión con el servidor');
+                    } else {
+                        // MODO CREACIÓN (POST)
+                        try {
+                            const res = await fetch('/api/script', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ code })
+                            });
+                            const data = await res.json();
+                            if(data.id) {
+                                const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
+                                
+                                // Guardar en localStorage
+                                let scripts = getLocalScripts();
+                                scripts.unshift({ id: data.id, code: code, loadstring: loadstring, date: new Date().toLocaleDateString() });
+                                saveLocalScripts(scripts);
+
+                                document.getElementById('result').value = loadstring;
+                                document.getElementById('scriptCode').value = '';
+                                loadLocalScripts();
+                                alert('¡Loadstring generado y guardado en tu panel!');
+                            } else {
+                                alert('Error al generar');
+                            }
+                        } catch (e) {
+                            alert('Error de conexión');
+                        }
                     }
+                }
+
+                function loadLocalScripts() {
+                    const listContainer = document.getElementById('scriptList');
+                    const scripts = getLocalScripts();
+
+                    if(scripts.length === 0) {
+                        listContainer.innerHTML = '<p style="color: #64748b; margin-top: 20px;">No hay scripts guardados en este navegador.</p>';
+                        return;
+                    }
+
+                    listContainer.innerHTML = '';
+                    scripts.forEach(s => {
+                        const item = document.createElement('div');
+                        item.className = 'script-item';
+                        item.innerHTML = \`
+                            <div class="script-info">ID: \/api/script/\${s.id}</div>
+                            <div class="script-actions">
+                                <button class="btn-edit" onclick="startEdit('\${s.id}')">Editar</button>
+                                <button onclick="copyLoadstring('\${s.loadstring}')">Copiar</button>
+                            </div>
+                        \`;
+                        listContainer.appendChild(item);
+                    });
+                }
+
+                function startEdit(id) {
+                    const scripts = getLocalScripts();
+                    const script = scripts.find(s => s.id === id);
+                    if(!script) return;
+
+                    editingId = id;
+                    document.getElementById('scriptCode').value = script.code;
+                    document.getElementById('result').value = script.loadstring;
+                    document.getElementById('formTitle').innerText = 'Editar Script';
+                    document.getElementById('formSubtitle').innerText = 'Modificando script existente';
+                    document.getElementById('saveBtn').innerText = 'Guardar Cambios';
+                    document.getElementById('cancelBtn').style.display = 'block';
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+
+                function resetForm() {
+                    editingId = null;
+                    document.getElementById('scriptCode').value = '';
+                    document.getElementById('result').value = '';
+                    document.getElementById('formTitle').innerText = 'Crear Loadstring';
+                    document.getElementById('formSubtitle').innerText = 'Sube o edita tus scripts públicos';
+                    document.getElementById('saveBtn').innerText = 'Generar Loadstring';
+                    document.getElementById('cancelBtn').style.display = 'none';
+                }
+
+                function copyLoadstring(text) {
+                    navigator.clipboard.writeText(text);
+                    alert('¡Loadstring copiado al portapapeles!');
                 }
             </script>
         </body>
@@ -102,32 +225,52 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// 2. RUTA PARA GUARDAR EL SCRIPT (POST)
+// 2. RUTA PARA GUARDAR NUEVOS SCRIPTS (POST)
 // ==========================================
 app.post('/api/script', async (req, res) => {
     try {
         const { code } = req.body;
-        if (!code) {
-            return res.status(400).json({ error: 'No se envió ningún código' });
-        }
+        if (!code) return res.status(400).json({ error: 'Falta el código' });
 
         const newScript = new ScriptModel({ code });
         await newScript.save();
 
         res.json({ id: newScript.id });
     } catch (error) {
-        console.error("Error al guardar:", error);
-        res.status(500).json({ error: 'Error interno del servidor al guardar' });
+        res.status(500).json({ error: 'Error interno al guardar' });
     }
 });
 
 // ==========================================
-// 3. RUTA PÚBLICA PERMANENTE (GET - SIN BORRAR)
+// 3. RUTA PARA ACTUALIZAR SCRIPTS (PUT - EDITAR)
+// ==========================================
+app.put('/api/script/:id', async (req, res) => {
+    try {
+        const { code } = req.body;
+        if (!code) return res.status(400).json({ error: 'Falta el código' });
+
+        const updated = await ScriptModel.findOneAndUpdate(
+            { id: req.params.id }, 
+            { code }, 
+            { new: true }
+        );
+
+        if (!updated) {
+            return res.status(404).json({ error: 'Script no encontrado' });
+        }
+
+        res.json({ success: true, id: updated.id });
+    } catch (error) {
+        console.error("Error al actualizar:", error);
+        res.status(500).json({ error: 'Error interno al actualizar' });
+    }
+});
+
+// ==========================================
+// 4. RUTA PÚBLICA PARA EJECUTAR EL SCRIPT (GET)
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = req.headers['user-agent'] || '';
-    
-    // Bloquear navegadores web comunes para que no puedan ver el código copiando el enlace en Google Chrome
     const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('Roblox');
 
     if (isBrowser) {
@@ -135,14 +278,12 @@ app.get('/api/script/:id', async (req, res) => {
     }
 
     try {
-        // Buscamos el script PERO NO LO BORRAMOS (findOne en lugar de findOneAndDelete)
         const scriptData = await ScriptModel.findOne({ id: req.params.id });
         
         if (!scriptData) {
             return res.status(404).send('-- Script no encontrado en la base de datos');
         }
 
-        // Entregamos el código limpio cuantas veces lo soliciten
         res.setHeader('Content-Type', 'text/plain');
         res.send(scriptData.code);
     } catch (error) {
@@ -154,5 +295,5 @@ app.get('/api/script/:id', async (req, res) => {
 // Puerto del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor público y permanente activo en el puerto ${PORT}`);
+    console.log(`🚀 Servidor con panel de gestión activo en el puerto ${PORT}`);
 });

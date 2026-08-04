@@ -10,10 +10,8 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors());
-
-// Ampliado el límite de tamaño para aceptar scripts gigantescos de Roblox
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Límite anti-spam para creación
 const createLimiter = rateLimit({
@@ -25,7 +23,7 @@ app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas - Soporte para Scripts Gigantes Activo"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - Formato Protegido Activo"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
 const scriptSchema = new mongoose.Schema({
@@ -49,7 +47,7 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>HubSilent - Panel Blindado</title>
+            <title>HubSilent - Panel Protegido</title>
             <style>
                 body { background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
                 .main-container { display: flex; gap: 20px; width: 900px; max-width: 100%; flex-wrap: wrap; justify-content: center; }
@@ -77,7 +75,7 @@ app.get('/', (req, res) => {
                 <!-- FORMULARIO -->
                 <div class="card">
                     <h2 id="formTitle">Crear Loadstring</h2>
-                    <p id="formSubtitle">Protegido con marca de agua y anti-dump</p>
+                    <p id="formSubtitle">Con formato de protección personalizado</p>
                     <textarea id="scriptCode" placeholder="Pega tu código de Lua aquí..."></textarea>
                     <button id="saveBtn" onclick="saveScript()">Generar Loadstring</button>
                     <button id="cancelBtn" class="btn-cancel" onclick="resetForm()">Cancelar Edición</button>
@@ -110,12 +108,6 @@ app.get('/', (req, res) => {
                     const code = document.getElementById('scriptCode').value;
                     if(!code) return alert('¡Pega un script primero!');
 
-                    // Mostrar estado de carga en el botón
-                    const btn = document.getElementById('saveBtn');
-                    const originalText = btn.innerText;
-                    btn.innerText = 'Guardando...';
-                    btn.disabled = true;
-
                     if (editingId) {
                         try {
                             const res = await fetch('/api/script/' + editingId, {
@@ -134,10 +126,10 @@ app.get('/', (req, res) => {
                                 resetForm();
                                 loadLocalScripts();
                             } else {
-                                alert('Error al actualizar: ' + (data.error || 'Desconocido'));
+                                alert('Error al actualizar');
                             }
                         } catch(e) {
-                            alert('Error de conexión al servidor.');
+                            alert('Error de conexión');
                         }
                     } else {
                         try {
@@ -148,7 +140,8 @@ app.get('/', (req, res) => {
                             });
                             const data = await res.json();
                             if(data.id) {
-                                const loadstring = \`-- protect by ikgmonxr lol haahaha\\nloadstring(game:HttpGet('\${window.location.origin}/api/script/\${data.id}'))()\`;
+                                // Formato solicitado con comillas simples y la marca de agua
+                                const loadstring = `-- protect by ikgmonxr lol haahaha\nloadstring(game:HttpGet('${window.location.origin}/api/script/${data.id}'))()`;
                                 
                                 let scripts = getLocalScripts();
                                 scripts.unshift({ id: data.id, code: code, loadstring: loadstring });
@@ -157,16 +150,14 @@ app.get('/', (req, res) => {
                                 document.getElementById('result').value = loadstring;
                                 document.getElementById('scriptCode').value = '';
                                 loadLocalScripts();
-                                alert('¡Loadstring generado con éxito!');
+                                alert('¡Loadstring generado con formato protegido!');
                             } else {
-                                alert('Error al generar: ' + (data.error || 'Desconocido'));
+                                alert('Error al generar');
                             }
                         } catch (e) {
-                            alert('Error de conexión o script demasiado pesado para la red.');
+                            alert('Error de conexión');
                         }
                     }
-                    btn.innerText = originalText;
-                    btn.disabled = false;
                 }
 
                 function loadLocalScripts() {
@@ -210,14 +201,14 @@ app.get('/', (req, res) => {
                     document.getElementById('scriptCode').value = '';
                     document.getElementById('result').value = '';
                     document.getElementById('formTitle').innerText = 'Crear Loadstring';
-                    document.getElementById('formSubtitle').innerText = 'Protegido con marca de agua y anti-dump';
+                    document.getElementById('formSubtitle').innerText = 'Con formato de protección personalizado';
                     document.getElementById('saveBtn').innerText = 'Generar Loadstring';
                     document.getElementById('cancelBtn').style.display = 'none';
                 }
 
                 function copyLoadstring(text) {
                     navigator.clipboard.writeText(text);
-                    alert('¡Loadstring copiado!');
+                    alert('¡Loadstring protegido copiado!');
                 }
             </script>
         </body>
@@ -236,8 +227,7 @@ app.post('/api/script', async (req, res) => {
         await newScript.save();
         res.json({ id: newScript.id });
     } catch (error) {
-        console.error("Error al guardar:", error);
-        res.status(500).json({ error: 'Error interno al guardar en base de datos' });
+        res.status(500).json({ error: 'Error interno' });
     }
 });
 
@@ -257,7 +247,7 @@ app.put('/api/script/:id', async (req, res) => {
 });
 
 // ==========================================
-// 4. RUTA DE ENTREGA BLINDADA (CON 100 LÍNEAS ANTI-DUMP)
+// 4. RUTA DE ENTREGA BLINDADA
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = (req.headers['user-agent'] || '').toLowerCase();
@@ -277,17 +267,8 @@ app.get('/api/script/:id', async (req, res) => {
             return res.status(404).send('-- Script no encontrado');
         }
 
-        // Generar relleno masivo (100 líneas de basura anti-dump)
-        let junkPadding = "-- [PROTECTED BY IKGMONXR - ANTI-DUMP SYSTEM]\n";
-        for (let i = 1; i <= 100; i++) {
-            junkPadding += `-- Junk Line ${i}: local _fakeData_${i} = "${Math.random().toString(36).substring(7)}"\n`;
-        }
-        junkPadding += "\n-- [INICIO DEL SCRIPT REAL]\n";
-
-        const finalProtectedCode = junkPadding + "\n" + scriptData.code;
-
         res.setHeader('Content-Type', 'text/plain');
-        res.send(finalProtectedCode);
+        res.send(scriptData.code);
     } catch (error) {
         console.error("Error al obtener el script:", error);
         res.status(500).send('-- Error interno del servidor');
@@ -296,5 +277,5 @@ app.get('/api/script/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Servidor con soporte masivo anti-dump activo en el puerto ${PORT}`);
+    console.log(`🛡️ Servidor con formato personalizado activo en el puerto ${PORT}`);
 });

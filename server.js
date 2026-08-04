@@ -7,47 +7,36 @@ const helmet = require('helmet');
 
 const app = express();
 
-// Confiar en el proxy de Render
 app.set('trust proxy', 1);
-
-// Cabeceras de seguridad avanzadas con Helmet
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Límite de peticiones ultra estricto anti-fuerza bruta (Máximo 5 peticiones cada 15 minutos por IP)
-const limiter = rateLimit({
+// Límite anti-spam ÚNICAMENTE para cuando crean nuevos scripts (evita que bots saturen tu base de datos)
+const createLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 5,
-    message: '🚫 IP bloqueada por actividad sospechosa o intentos de fuerza bruta.',
-    standardHeaders: true,
-    legacyHeaders: false,
+    max: 10,
+    message: '🚫 Has creado demasiados scripts muy rápido. Espera un momento.',
 });
-
-// Aplicar limitador únicamente a las rutas de API
-app.use('/api/', limiter);
+app.post('/api/script', createLimiter);
 
 // Conexión a MongoDB Atlas
 mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("✅ Conectado a MongoDB Atlas con seguridad máxima"))
+    .then(() => console.log("✅ Conectado a MongoDB Atlas - Modo Público/Permanente"))
     .catch((err) => console.error("❌ Error de conexión a DB:", err));
 
-// Esquema avanzado con Token de seguridad único y expiración automática
+// Esquema permanente (sin expiración)
 const scriptSchema = new mongoose.Schema({
     id: { 
         type: String, 
         default: () => crypto.randomBytes(16).toString('hex') 
     },
-    downloadToken: {
-        type: String,
-        default: () => crypto.randomBytes(32).toString('hex')
-    },
     code: String,
-    createdAt: { type: Date, default: Date.now, expires: 60 } // Se autodestruye en MongoDB si pasa 1 minuto sin usarse
+    createdAt: { type: Date, default: Date.now }
 });
 
-const ScriptModel = mongoose.model('SecureScript', scriptSchema);
+const ScriptModel = mongoose.model('PublicScript', scriptSchema);
 
 // ==========================================
 // 1. PÁGINA WEB PRINCIPAL (INTERFAZ VISUAL)
@@ -59,26 +48,26 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>HubSilent - Secure Generation</title>
+            <title>HubSilent - Generador Público</title>
             <style>
-                body { background: #05050a; color: #f8fafc; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-                .container { background: #0f172a; padding: 30px; border: 1px solid #1e293b; border-radius: 12px; box-shadow: 0 0 30px rgba(56, 189, 248, 0.1); width: 480px; display: flex; flex-direction: column; gap: 15px; }
-                h2 { margin: 0 0 5px 0; color: #38bdf8; text-align: center; letter-spacing: 2px; }
-                p { font-size: 11px; color: #64748b; text-align: center; margin: 0 0 10px 0; }
-                textarea { background: #020617; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 12px; height: 140px; resize: none; outline: none; }
+                body { background: #0f172a; color: #f8fafc; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                .container { background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); width: 450px; display: flex; flex-direction: column; gap: 15px; }
+                h2 { margin: 0 0 5px 0; color: #38bdf8; text-align: center; }
+                p { font-size: 12px; color: #94a3b8; text-align: center; margin: 0 0 10px 0; }
+                textarea { background: #0f172a; color: #38bdf8; border: 1px solid #334155; border-radius: 6px; padding: 12px; height: 140px; resize: none; font-family: monospace; outline: none; }
                 textarea:focus { border-color: #38bdf8; }
-                button { background: #0284c7; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-                button:hover { background: #0369a1; }
-                input { background: #020617; color: #e2e8f0; border: 1px solid #334155; border-radius: 6px; padding: 10px; outline: none; font-size: 12px; }
+                button { background: #22c55e; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+                button:hover { background: #16a34a; }
+                input { background: #0f172a; color: #fff; border: 1px solid #334155; border-radius: 6px; padding: 10px; font-family: monospace; outline: none; font-size: 13px; }
             </style>
         </head>
         <body>
             <div class="container">
-                <h2>HUBSILENT SHIELD</h2>
-                <p>Sistema de Loadstrings Blindados de Un Solo Uso</p>
-                <textarea id="scriptCode" placeholder="Pega tu script de Lua (recomendado ofuscado)..."></textarea>
-                <button onclick="generate()">Generar Loadstring Criptográfico</button>
-                <input type="text" id="result" readonly placeholder="Tu loadstring protegido aparecerá aquí...">
+                <h2>HubSilent Hub</h2>
+                <p>Crea un loadstring permanente para todo el público</p>
+                <textarea id="scriptCode" placeholder="Pega tu script de Lua aquí..."></textarea>
+                <button onclick="generate()">Generar Loadstring Permanente</button>
+                <input type="text" id="result" readonly placeholder="Tu loadstring aparecerá aquí...">
             </div>
             <script>
                 async function generate() {
@@ -92,18 +81,18 @@ app.get('/', (req, res) => {
                             body: JSON.stringify({ code })
                         });
                         const data = await res.json();
-                        if(data.id && data.token) {
-                            const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}?token=\${data.token}"))()\`;
+                        if(data.id) {
+                            const loadstring = \`loadstring(game:HttpGet("\${window.location.origin}/api/script/\${data.id}"))()\`;
                             const resultInput = document.getElementById('result');
                             resultInput.value = loadstring;
                             resultInput.select();
                             navigator.clipboard.writeText(loadstring);
-                            alert('¡Protección aplicada! Este loadstring se autodestruirá tras su primera ejecución.');
+                            alert('¡Loadstring permanente generado y copiado al portapapeles!');
                         } else {
-                            alert('Error al generar la seguridad');
+                            alert('Error al generar el loadstring');
                         }
                     } catch (e) {
-                        alert('Error de conexión con el servidor blindado');
+                        alert('Error de conexión con el servidor');
                     }
                 }
             </script>
@@ -113,67 +102,57 @@ app.get('/', (req, res) => {
 });
 
 // ==========================================
-// 2. RUTA PARA GUARDAR Y FIRMAR EL SCRIPT (POST)
+// 2. RUTA PARA GUARDAR EL SCRIPT (POST)
 // ==========================================
 app.post('/api/script', async (req, res) => {
     try {
         const { code } = req.body;
         if (!code) {
-            return res.status(400).json({ error: 'No se envió código' });
+            return res.status(400).json({ error: 'No se envió ningún código' });
         }
 
         const newScript = new ScriptModel({ code });
         await newScript.save();
 
-        // Devuelve tanto el ID como el Token secreto requerido para la descarga
-        res.json({ id: newScript.id, token: newScript.downloadToken });
+        res.json({ id: newScript.id });
     } catch (error) {
         console.error("Error al guardar:", error);
-        res.status(500).json({ error: 'Error interno de cifrado' });
+        res.status(500).json({ error: 'Error interno del servidor al guardar' });
     }
 });
 
 // ==========================================
-// 3. RUTA BLINDADA DE DESCARGA (GET - BURN ON READ + TOKEN)
+// 3. RUTA PÚBLICA PERMANENTE (GET - SIN BORRAR)
 // ==========================================
 app.get('/api/script/:id', async (req, res) => {
     const userAgent = req.headers['user-agent'] || '';
-    const clientToken = req.query.token;
-
-    // Bloquear navegadores web comunes
+    
+    // Bloquear navegadores web comunes para que no puedan ver el código copiando el enlace en Google Chrome
     const isBrowser = /chrome|firefox|safari|edg|opera|msie|trident/i.test(userAgent) && !userAgent.includes('Roblox');
 
     if (isBrowser) {
-        return res.status(403).send('ACCESO DENEGADO: Este recurso requiere un cliente de ejecución autorizado en Roblox.');
-    }
-
-    // Exigir que traiga el token criptográfico correcto adjunto en la URL
-    if (!clientToken) {
-        return res.status(401).send('-- Error de Autenticación: Token de acceso faltante.');
+        return res.status(403).send('ACCESO DENEGADO: Este loadstring solo puede ejecutarse mediante un exploit en Roblox.');
     }
 
     try {
-        // BUSCAR Y DESTRUIR AL INSTANTE (Burn-on-Read estricto por ID y Token)
-        const scriptData = await ScriptModel.findOneAndDelete({ 
-            id: req.params.id, 
-            downloadToken: clientToken 
-        });
+        // Buscamos el script PERO NO LO BORRAMOS (findOne en lugar de findOneAndDelete)
+        const scriptData = await ScriptModel.findOne({ id: req.params.id });
         
         if (!scriptData) {
-            return res.status(404).send('-- Error Crítico: Enlace inválido, expirado, ya utilizado o token incorrecto.');
+            return res.status(404).send('-- Script no encontrado en la base de datos');
         }
 
-        // Entregar el código en texto plano de forma limpia al exploit
+        // Entregamos el código limpio cuantas veces lo soliciten
         res.setHeader('Content-Type', 'text/plain');
         res.send(scriptData.code);
     } catch (error) {
-        console.error("Error en la entrega del script:", error);
-        res.status(500).send('-- Error interno del servidor blindado');
+        console.error("Error al obtener el script:", error);
+        res.status(500).send('-- Error interno del servidor');
     }
 });
 
 // Puerto del servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🛡️ Servidor blindado activo en el puerto ${PORT}`);
+    console.log(`🚀 Servidor público y permanente activo en el puerto ${PORT}`);
 });

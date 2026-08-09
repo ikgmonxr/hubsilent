@@ -9,7 +9,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 // ====================== CONFIGURACIÓN ======================
-const PANEL_PASSWORD = "CambiaEstaContraseña123!"; // ← CAMBIA ESTA CONTRASEÑA
+const PANEL_PASSWORD = "aleme2027"; // ← CAMBIA ESTA CONTRASEÑA
 const PORT = process.env.PORT || 3000;
 
 // ====================== SEGURIDAD ======================
